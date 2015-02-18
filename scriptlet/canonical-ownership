@@ -1,7 +1,8 @@
 #!/bin/sh
 
 IFS=$'\n'
-RANDOM_GEN="$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w)"
+RANDOM_GEN="$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 8)"
+TIMESTAMP=$(date +"%Y%m%d%H%M%S")
 
 printinfo(){ 
     echo -e "[\e[96mINFO\e[0m]: \e[1m$*\e[0m" >&2; 
@@ -14,11 +15,12 @@ printerr(){
 }
 
 cowner_record_full_system(){
+    mkdir -p /tmp/$RANDOM_GEN/ /var/lib/canonical-ownership/full-system/
     find / -not -path /proc -not -path /dev -not -path /sys \
-        > /tmp/$RANDOM_GEN/enlist-`date +"%Y%m%d%H%M%S"`
-    for preproc in `cat enlist`; do
+        > /tmp/$RANDOM_GEN/enlist-$TIMESTAMP
+    for preproc in `cat /tmp/$RANDOM_GEN/enlist-$TIMESTAMP`; do
         stat -c "%n %a %u %g" $preproc ; done \
-        > /var/lib/canonical-ownership/full-system/saved-list-`date +"%Y%m%d%H%M%S"`
+        > /var/lib/canonical-ownership/full-system/saved-list-$TIMESTAMP
 }
 
 cowner_find_newest_system_list(){
@@ -29,6 +31,7 @@ cowner_restore_full_system(){
     for rstritems in `cat $NEWEST_LIST`; do
         chmod -v $2 $1
         chown -v $3:$4 $1
-    done 2> /var/log/saved-list-`date +"%Y%m%d%H%M%S"`-resotre-log
+    done 2> /var/log/saved-list-$TIMESTAMP-resotre-log
 }
 
+cowner_record_full_system
