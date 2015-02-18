@@ -3,6 +3,10 @@
 IFS=$'\n'
 RANDOM_GEN="$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 8)"
 TIMESTAMP=$(date +"%Y%m%d%H%M%S")
+ARGS=`getopt -o rshv --long record-system,restore-system,help,version \
+             -n 'canonical-ownership' -- "$@"`
+
+eval set -- "$ARGS"
 
 printinfo(){ 
     echo -e "[\e[96mINFO\e[0m]: \e[1m$*\e[0m" >&2; 
@@ -30,18 +34,30 @@ usage(){
 
 cowner_version(){
     echo "Canonical Version VERSION (a little joke from Microsoft)."
+}
+
+count_file(){
+    res=$(find / | wc -l)
+    printinfo "Found $res files in current filesystem."
+}
 
 cowner_record_full_system(){
     mkdir -p /tmp/$RANDOM_GEN/ /var/lib/canonical-ownership/full-system/
     find / -not -path /proc -not -path /dev -not -path /sys \
-        > /tmp/$RANDOM_GEN/enlist-$TIMESTAMP
+        > /tmp/$RANDOM_GEN/enlist-$TIMESTAMP 
     for preproc in `cat /tmp/$RANDOM_GEN/enlist-$TIMESTAMP`; do
         stat -c "%n %a %u %g" $preproc ; done \
-        > /var/lib/canonical-ownership/full-system/saved-list-$TIMESTAMP
+        > /var/lib/canonical-ownership/full-system/saved-list-$TIMESTAMP 
 }
 
 cowner_find_newest_system_list(){
-    NEWEST_LIST=$(ls -t /var/lib/canonical-ownership/full-system/saved-list-* | head -1)
+    if [ -f /var/lib/canonical-ownership/full-system/saved-list-* ]; then
+        NEWEST_LIST=$(ls -t /var/lib/canonical-ownership/full-system/saved-list-* | head -1)
+        RECORD_FOUND=1
+    else
+        printerr "No former record found!"
+        RECORD_FOUND=0
+    fi
 }
 
 cowner_restore_full_system(){
@@ -51,3 +67,39 @@ cowner_restore_full_system(){
     done 2> /var/log/saved-list-$TIMESTAMP-resotre-log
 }
 
+while true; do
+  case "$1" in
+    -r | --record-system ) 
+        if [ "$(id -u)" != "0" ]; then
+            printerr "You cannot record system file state unless you are root."
+            exit 1
+        else
+            count_file;
+            printinfo "Recording system file state, a cup of tea advised."
+            cowner_record_full_system;
+        fi
+        shift ;;
+    -s | --restore-system ) 
+        if [ "$(id -u)" != "0" ]; then
+            printerr "You cannot restore system file state unless you are root."
+            exit 1
+        else
+            if [ "xRECORD_FOUND" = "x1" ]; then
+                cowner_find_newest_system_list;
+                cowner_restore_full_system;
+            else
+                cowner_find_newest_system_list;
+                exit
+            fi
+        fi
+        shift ;;
+    -h | --help )
+        usage;
+        shift ;;
+    -v | --version )
+        cowner_version;
+        shift ;;
+    -- ) break ;;
+    * ) break ;;
+  esac
+done
