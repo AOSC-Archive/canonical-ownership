@@ -14,6 +14,23 @@ printerr(){
     echo -e "[\e[31mERROR\e[0m]: \e[1m$*\e[0m" >&2; 
 }
 
+usage(){
+    printf \
+"Canonical Ownership:	Return the files to whom it belong to. 
+			Fixes system file ownership and modes.
+
+	--record-system		Record current state of ALL system files.
+				(WARNING: may take more than 20 minutes)
+	--restore-system	Restore system to latest correct state (assumed).
+	--help			Print this help message.
+	--version		Version of Canonical Ownership.
+
+"
+}
+
+cowner_version(){
+    echo "Canonical Version VERSION (a little joke from Microsoft)."
+
 cowner_record_full_system(){
     mkdir -p /tmp/$RANDOM_GEN/ /var/lib/canonical-ownership/full-system/
     find / -not -path /proc -not -path /dev -not -path /sys \
@@ -34,4 +51,3 @@ cowner_restore_full_system(){
     done 2> /var/log/saved-list-$TIMESTAMP-resotre-log
 }
 
-cowner_record_full_system
