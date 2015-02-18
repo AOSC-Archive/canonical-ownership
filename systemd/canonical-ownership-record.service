@@ -1,0 +1,9 @@
+[Unit]
+Description=Recorde Current File Xattr and Ownership Information
+Wants=rescue.target
+
+[Service]
+ExecStart=/usr/bin/canonical-ownership --record
+
+[Install]
+WantedBy=rescue.target

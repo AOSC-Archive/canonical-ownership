@@ -1,0 +1,34 @@
+#!/bin/sh
+
+IFS=$'\n'
+RANDOM_GEN="$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w)"
+
+printinfo(){ 
+    echo -e "[\e[96mINFO\e[0m]: \e[1m$*\e[0m" >&2; 
+}
+printwarn(){ 
+    echo -e "[\e[33mWARN\e[0m]: \e[1m$*\e[0m" >&2; 
+}
+printerr(){ 
+    echo -e "[\e[31mERROR\e[0m]: \e[1m$*\e[0m" >&2; 
+}
+
+cowner_record_full_system(){
+    find / -not -path /proc -not -path /dev -not -path /sys \
+        > /tmp/$RANDOM_GEN/enlist-`date +"%Y%m%d%H%M%S"`
+    for preproc in `cat enlist`; do
+        stat -c "%n %a %u %g" $preproc ; done \
+        > /var/lib/canonical-ownership/full-system/saved-list-`date +"%Y%m%d%H%M%S"`
+}
+
+cowner_find_newest_system_list(){
+    NEWEST_LIST=$(ls -t /var/lib/canonical-ownership/full-system/saved-list-* | head -1)
+}
+
+cowner_restore_full_system(){
+    for rstritems in `cat $NEWEST_LIST`; do
+        chmod -v $2 $1
+        chown -v $3:$4 $1
+    done 2> /var/log/saved-list-`date +"%Y%m%d%H%M%S"`-resotre-log
+}
+

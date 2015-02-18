@@ -1,0 +1,9 @@
+[Unit]
+Description=Restore File Xattr and Ownership Information to its Canonical State
+Wants=rescue.target
+
+[Service]
+ExecStart=/usr/bin/canonical-ownership --restore
+
+[Install]
+WantedBy=rescue.target
