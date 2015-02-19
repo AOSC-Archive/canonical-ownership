@@ -3,7 +3,7 @@
 IFS=$'\n'
 RANDOM_GEN="$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 8)"
 TIMESTAMP=$(date +"%Y%m%d%H%M%S")
-ARGS=`getopt -o rshv --long record-system,restore-system,help,version \
+ARGS=`getopt -o rsRShv --long record-system,restore-system,record-home,restore-home,help,version \
              -n 'canonical-ownership' -- "$@"`
 
 eval set -- "$ARGS"
@@ -23,11 +23,15 @@ usage(){
 "Canonical Ownership:	Return the files to whom it belong to. 
 			Fixes system file ownership and modes.
 
-	--record-system		Record current state of ALL system files.
-				(WARNING: may take more than 20 minutes)
-	--restore-system	Restore system to latest correct state (assumed).
-	--help			Print this help message.
-	--version		Version of Canonical Ownership.
+	-r, --record-system		Record current state of ALL system files.
+					(WARNING: may take more than 20 minutes)
+	-s, --restore-system		Restore system to latest correct state (assumed).
+        -R, --record-home		Similar to '--record-system' but for recordings 
+					current $HOME for user running this script only.
+	-S, --restore-home		Similar to '--record-system' but for restoring
+					current $HOME for user running this script only.
+	-h, --help			Print this help message.
+	-v, --version			Version of Canonical Ownership.
 
 "
 }
@@ -38,6 +42,11 @@ cowner_version(){
 
 count_file(){
     res=$(find / | wc -l)
+    printinfo "Found $res files in current filesystem."
+}
+
+count_file_home(){
+    res=$(find $HOME/ | wc -l)
     printinfo "Found $res files in current filesystem."
 }
 
@@ -61,10 +70,45 @@ cowner_find_newest_system_list(){
 }
 
 cowner_restore_full_system(){
-    for rstritems in `cat $NEWEST_LIST`; do
-        chmod -v $2 $1
-        chown -v $3:$4 $1
-    done 2> /var/log/saved-list-$TIMESTAMP-resotre-log
+    while read line; do
+        MODE=$(echo $line | cut -f1 -d$'\t')
+        OWNER=$(echo $line | cut -f2 -d$'\t')
+        GROUP=$(echo $line | cut -f3 -d$'\t')
+        FILE=$(echo $line | cut -f4 -d$'\t')
+        chown -v $OWNER:$GROUP $FILE
+        chmod -v $MODE $FILE
+    done < $NEWEST_LIST > $(echo $NEWEST_LIST | cut -f6 -d'/')-restore-log
+}
+
+cowner_record_home(){
+    mkdir -p $HOME/.canonical-ownership/{tmp/$RANDOM_GEN,records,logs}
+    for i in `find $HOME/`; do
+        echo $i
+        done > $HOME/.canonical-ownership/tmp/$RANDOM_GEN/enlist-$TIMESTAMP
+    for preproc in `cat $HOME/.canonical-ownership/tmp/$RANDOM_GEN/enlist-$TIMESTAMP`; do
+        stat -c "%a	%u	%g	%n" $preproc ; done \
+        > $HOME/.canonical-ownership/records/saved-list-$TIMESTAMP
+}
+
+cowner_find_newest_home_list(){
+    if [ "$(ls -A $HOME/.canonical-ownership/records/saved-list-*)" ]; then
+        NEWEST_LIST_HOME=$(ls -t $HOME/.canonical-ownership/records/saved-list-* | head -1)
+        RECORD_FOUND_HOME=1
+    else
+        printerr "No former record found!"
+        RECORD_FOUND_HOME=0
+    fi
+}
+
+cowner_restore_home(){
+    while read line; do
+        MODE=$(echo $line | cut -f1 -d$'\t')
+        OWNER=$(echo $line | cut -f2 -d$'\t')
+        GROUP=$(echo $line | cut -f3 -d$'\t')
+        FILE=$(echo $line | cut -f4 -d$'\t')
+        chown -v $OWNER:$GROUP $FILE
+    chmod -v $MODE $FILE
+done < $NEWEST_LIST_HOME > $HOME/.canonical-ownership/logs/$(echo $NEWEST_LIST_HOME | cut -f6 -d'/')-restore-log 
 }
 
 while true; do
@@ -92,6 +136,16 @@ while true; do
                 exit
             fi
         fi
+        shift ;;
+    -R | --record-home )
+        count_file_home;
+        printinfo "Recording file state for $(whoami)'s home directory..."
+        cowner_record_home;
+        shift ;;
+    -S | --restore-home )
+        printinfo "Restoring file state for $(whoami)'s home directory..."
+        cowner_find_newest_home_list;
+        cowner_restore_home;
         shift ;;
     -h | --help )
         usage;
