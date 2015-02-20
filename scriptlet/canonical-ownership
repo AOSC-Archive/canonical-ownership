@@ -55,7 +55,7 @@ cowner_record_full_system(){
     find / -not -path /proc -not -path /dev -not -path /sys \
         > /tmp/$RANDOM_GEN/enlist-$TIMESTAMP 
     for preproc in `cat /tmp/$RANDOM_GEN/enlist-$TIMESTAMP`; do
-        stat -c "%n %a %u %g" $preproc ; done \
+        stat -c "%a	%u	%g	%n" $preproc ; done \
         > /var/lib/canonical-ownership/full-system/saved-list-$TIMESTAMP 
 }
 
